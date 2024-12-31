@@ -183,9 +183,10 @@ function formatContent(text) {
         .replace(/_/g, ' ');
     document.getElementById('textArea').value = result;
 
-    // 2. 删除逗号和括号左右的所有空格，并删除每行最后的逗号
-    result = result.replace(/\s*([,()])\s*/g, '$1')
-        .replace(/,$/mg, '');
+    // 2. 只删除逗号和括号左右的空格，保留换行符
+    result = result.split('\n').map(line => {
+        return line.replace(/\s*([,()])\s*/g, '$1').replace(/,\s*$/, '');
+    }).join('\n');
     document.getElementById('textArea').value = result;
 
     // 3. 若有多个括号连在一起则改为一个逗号
