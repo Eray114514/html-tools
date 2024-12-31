@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML和文本处理工具</title>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .tab-container {
+            width: 100%;
+        }
+
+        .tabs {
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #f1f1f1;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .tab-button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+            font-size: 16px;
+        }
+
+        .tab-button:hover {
+            background-color: #ddd;
+        }
+
+        .tab-button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .button {
+            padding: 10px 20px;
+            margin: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .button:hover {
+            background-color: #45a049;
+        }
+
+        #preview {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+
+        #textArea {
+            width: 100%;
+            min-height: 300px;
+            margin: 10px 0;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .controls {
+            margin: 10px 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #1a1a1a;
+                color: #ffffff;
+            }
+
+            .tabs {
+                background-color: #2d2d2d;
+                border-color: #444;
+            }
+
+            .tab-button {
+                color: #ffffff;
+            }
+
+            .tab-button:hover {
+                background-color: #444;
+            }
+
+            .tab-content {
+                background-color: #2d2d2d;
+                border-color: #444;
+            }
+
+            #preview, #textArea {
+                background-color: #333;
+                color: #ffffff;
+                border-color: #444;
+            }
+
+            select, option {
+                background-color: #333;
+                color: #ffffff;
+                border-color: #444;
+            }
+
+            table {
+                border-color: #444;
+            }
+
+            td, th {
+                border-color: #444;
+            }
+
+            .button {
+                background-color: #45a049;
+            }
+
+            .button:hover {
+                background-color: #3d8b41;
+            }
+
+            .tab-button.active {
+                background-color: #45a049;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="tab-container">
+        <div class="tabs">
+            <button class="tab-button active" onclick="openTab(event, 'htmlTab')">HTML处理</button>
+            <button class="tab-button" onclick="openTab(event, 'textTab')">文本处理</button>
+        </div>
+
+        <!-- HTML处理标签页 -->
+        <div id="htmlTab" class="tab-content active">
+            <input type="file" id="htmlFile" accept=".html,.htm" style="display: none;">
+            <button class="button" onclick="document.getElementById('htmlFile').click()">选择HTML文件</button>
+            <button class="button" id="convertBtn" disabled>转换并保存为Excel</button>
+            <div class="controls">
+                <select id="directionSelect" disabled>
+                    <option value="">选择导出方向</option>
+                    <option value="row">按行导出</option>
+                    <option value="column">按列导出</option>
+                </select>
+                <select id="headerSelect" disabled>
+                    <option value="">选择要导出的标题</option>
+                </select>
+                <button class="button" id="sendToTxtBtn" disabled>发送到文本处理</button>
+            </div>
+            <div id="preview"></div>
+        </div>
+
+        <!-- 文本处理标签页 -->
+        <div id="textTab" class="tab-content">
+            <input type="file" id="txtFile" accept=".txt" style="display: none;">
+            <button class="button" onclick="document.getElementById('txtFile').click()">选择TXT文件</button>
+            <div class="controls">
+                <select id="formatRule">
+                    <option value="wildcards">wildcards</option>
+                </select>
+                <button class="button" id="formatBtn">规则化</button>
+                <button class="button" id="exportTxtBtn">下载TXT</button>
+            </div>
+            <textarea id="textArea" placeholder="在此处输入或粘贴文本..."></textarea>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
