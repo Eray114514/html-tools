@@ -269,17 +269,27 @@ document.getElementById('formatBtn').addEventListener('click', function () {
 document.getElementById('exportTxtBtn').addEventListener('click', function () {
     const textArea = document.getElementById('textArea');
     const content = textArea.value;
-
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    document.body.appendChild(a);
-    a.style.display = 'none';
-    const url = window.URL.createObjectURL(blob);
-    a.href = url;
-    a.download = 'processed_text.txt';
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    
+    try {
+        const blob = new Blob([content], { type: 'text/plain' });
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `processed_text_${new Date().getTime()}.txt`;
+        
+        // 必须将链接添加到DOM中
+        document.body.appendChild(link);
+        link.click();
+        
+        // 清理
+        setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+        }, 100);
+    } catch (error) {
+        console.error('下载文件失败:', error);
+        alert('下载文件失败，请重试');
+    }
 });
 
 document.getElementById('convertBtn').addEventListener('click', async function () {
@@ -377,19 +387,31 @@ document.getElementById('convertBtn').addEventListener('click', async function (
     await Promise.all(processingPromises);
     progressDiv.textContent = '正在生成Excel文件...';
 
-    // 导出Excel文件
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const a = document.createElement('a');
-    document.body.appendChild(a);
-    a.style.display = 'none';
-    const url = window.URL.createObjectURL(blob);
-    a.href = url;
-    a.download = 'table_data.xlsx';
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    document.body.removeChild(progressDiv);
+    try {
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { 
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `table_data_${new Date().getTime()}.xlsx`;
+        
+        // 必须将链接添加到DOM中
+        document.body.appendChild(link);
+        link.click();
+        
+        // 清理
+        setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+            document.body.removeChild(progressDiv);
+        }, 100);
+    } catch (error) {
+        console.error('导出Excel失败:', error);
+        alert('导出Excel失败，请重试');
+        document.body.removeChild(progressDiv);
+    }
 });
 
 // 添加标签页切换功能
