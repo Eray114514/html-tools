@@ -1,44 +1,66 @@
-# HTML和文本处理工具
+# 📦 Data Studio Pro
 
-## 项目简介
-这是一个用于处理HTML文件和文本文件的工具，支持从HTML表格中提取数据并转换为Excel文件，以及对文本内容进行格式化处理。
+**Data Studio Pro** 是一款专为高效数据处理设计的轻量级工作站。它集成了 HTML 表格解析、Excel 自动化导出、图片批量提取以及文本规则化清洗功能，旨在为数据采集与预处理提供极致的沉浸式体验。
 
-## 功能介绍
-- **HTML处理**: 从HTML文件中提取表格数据，并转换为Excel文件。
-- **文本处理**: 对文本内容进行格式化处理，并支持下载为TXT文件。
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Version](https://img.shields.io/badge/Version-2.0.0-success.svg)
+![Style](https://img.shields.io/badge/Style-Minimalist-black.svg)
 
-## 使用说明
-### HTML处理
-1. 点击“选择HTML文件”按钮，选择一个包含表格的HTML文件。
-2. 选择导出方向（按行导出或按列导出）。
-3. 选择要导出的标题。
-4. 点击“转换并保存为Excel”按钮，将表格数据转换为Excel文件并下载。
-5. 点击“发送到文本处理”按钮，将选中的表格数据发送到文本处理区域。
+---
 
-### 文本处理
-1. 点击“选择TXT文件”按钮，选择一个TXT文件。
-2. 在文本区域中输入或粘贴文本内容。
-3. 选择格式化规则。
-4. 点击“规则化”按钮，对文本内容进行格式化处理。
-5. 点击“下载TXT”按钮，将处理后的文本内容下载为TXT文件。
+## ✨ 核心特性
 
-## 依赖项
-- [xlsx](https://unpkg.com/xlsx/dist/xlsx.full.min.js)
-- [exceljs](https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js)
+### 📊 表格处理中心 (Table Processor)
+*   **即时解析**：支持拖拽上传 HTML 文件，毫秒级还原表格结构。
+*   **维度提取**：自由切换“按行”或“按列”模式，精准锁定目标数据。
+*   **图片批量提取 (New)**：一键扫描特定行/列中的所有图像，自动打包并重命名为 `.zip` 下载。
+*   **Excel 自动化**：一键将复杂的网页表格转换为标准的 `.xlsx` 文档。
 
-## 开发
-1. 克隆项目到本地：
-    ```bash
-    git clone https://github.com/yourusername/html-tools.git
-    ```
-2. 打开项目目录：
-    ```bash
-    cd html-tools
-    ```
-3. 在浏览器中打开`index.html`文件，开始使用工具。
+### 🧹 文本清洗工坊 (Text Studio)
+*   **Wildcards 规则引擎**：专为特定标记语言设计的标准化工具。
+    *   自动更正全角符号（`，。、（）`）。
+    *   智能处理括号组逻辑，修复连体括号 `)(` 为 `),(`。
+    *   去除多余的反斜杠与首尾冗余符号。
+*   **IDE 级体验**：沉浸式代码编辑器风格，支持大规模文本快速处理与导出。
 
-## 贡献
-欢迎提交问题和拉取请求来改进此项目。
+---
 
-## 许可证
-此项目基于MIT许可证。
+## 🚀 技术栈
+
+本项目坚持 **Zero-Backend (无后端)** 理念，所有数据处理均在浏览器本地完成，确保隐私安全。
+
+| 模块 | 驱动技术 |
+| :--- | :--- |
+| **UI 框架** | Vanilla JS + Glassmorphism CSS |
+| **表格导出** | [ExcelJS](https://github.com/exceljs/exceljs) |
+| **图片打包** | [JSZip](https://stuk.github.io/jszip/) |
+| **文件保存** | [FileSaver.js](https://github.com/eligrey/FileSaver.js/) |
+| **图标库** | FontAwesome 6.4 |
+
+---
+
+## 🛠 如何使用
+
+1.  **启动**：克隆仓库后，直接在浏览器中打开 `index.html`。
+2.  **HTML 处理**：
+    *   将 HTML 文件拖入侧边栏指定的上传区。
+    *   在“数据提取配置”中选择方向（行/列）及具体序号。
+    *   点击“提取文本”发送至编辑器，或点击“提取图片”批量下载。
+3.  **文本清洗**：
+    *   从 HTML 提取数据或手动粘贴文本。
+    *   点击“执行清洗”应用 Wildcards 规则。
+    *   点击“导出 TXT”获取最终结果。
+
+---
+
+## 🎨 设计理念
+
+*   **极简主义**：采用类似 Linear/Vercel 的高对比度、低饱和度配色方案。
+*   **响应式布局**：侧边栏导航配合 Bento-Grid 卡片设计，适配不同尺寸的工作屏幕。
+*   **交互反馈**：全量覆盖 CSS 动效与异步加载状态提示。
+
+---
+
+## 📄 开源协议
+
+本项目基于 **MIT License** 协议开源。
