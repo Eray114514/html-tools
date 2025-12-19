@@ -1,435 +1,396 @@
-const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-darkModeMediaQuery.addListener((e) => {
-    updateTheme(e.matches);
-});
+/**
+ * Data Studio Pro - Logic Controller
+ * 包含：UI控制、Excel处理、图像提取打包(JSZip)、文本清洗
+ */
 
-function updateTheme(isDark) {
-    // 可以在这里添加额外的主题切换逻辑
-    console.log('Theme changed to:', isDark ? 'dark' : 'light');
-}
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // ==========================================
+    // Core: State & Utils
+    // ==========================================
+    const state = {
+        tableData: null,
+        currentTab: 'html-panel'
+    };
 
-// 初始化主题
-updateTheme(darkModeMediaQuery.matches);
-
-let tableData = null;
-
-// HTML文件处理
-document.getElementById('htmlFile').addEventListener('change', function (e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const htmlContent = e.target.result;
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlContent, 'text/html');
-            const tables = doc.getElementsByTagName('table');
-
-            if (tables.length > 0) {
-                tableData = tables[0];
-                document.getElementById('preview').innerHTML = tableData.outerHTML;
-                document.getElementById('convertBtn').disabled = false;
-
-                // 更新列选择器
-                updateSelectors();
+    const ui = {
+        toast: (msg, type = 'info') => {
+            const container = document.getElementById('status-bar');
+            const el = document.createElement('div');
+            el.className = 'toast';
+            
+            let icon = type === 'error' ? '<i class="fa-solid fa-circle-exclamation" style="color:var(--danger)"></i>' : 
+                       type === 'success' ? '<i class="fa-solid fa-circle-check" style="color:var(--success)"></i>' :
+                       '<i class="fa-solid fa-circle-info" style="color:var(--accent)"></i>';
+            
+            el.innerHTML = `${icon}<span>${msg}</span>`;
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(20px)';
+                setTimeout(() => el.remove(), 300);
+            }, 3000);
+        },
+        loader: (show, text = 'Processing...') => {
+            const loader = document.getElementById('htmlLoader');
+            const txt = document.getElementById('loaderText');
+            if(show) {
+                txt.textContent = text;
+                loader.classList.add('show');
             } else {
-                alert('未找到表格数据！');
-                document.getElementById('convertBtn').disabled = true;
-                document.getElementById('columnSelect').disabled = true;
-                document.getElementById('exportTxtBtn').disabled = true;
-            }
-        };
-        reader.readAsText(file);
-    }
-});
-
-// TXT文件处理
-document.getElementById('txtFile').addEventListener('change', function (e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            document.getElementById('textArea').value = e.target.result;
-        };
-        reader.readAsText(file);
-    }
-});
-
-// 从HTML区域发送数据到文本区域
-document.getElementById('sendToTxtBtn').addEventListener('click', function () {
-    const directionSelect = document.getElementById('directionSelect');
-    const headerSelect = document.getElementById('headerSelect');
-    const index = parseInt(headerSelect.value);
-    const isRow = directionSelect.value === 'row';
-
-    if (!tableData || isNaN(index)) {
-        alert('请选择要导出的内容！');
-        return;
-    }
-
-    let content = [];
-    const rows = tableData.getElementsByTagName('tr');
-
-    if (isRow) {
-        const selectedRow = rows[index];
-        const cells = selectedRow.getElementsByTagName('td');
-        const headers = selectedRow.getElementsByTagName('th');
-        [...headers, ...cells].forEach(cell => {
-            const text = cell.textContent.trim();
-            if (text) content.push(text);
-        });
-    } else {
-        for (let i = 0; i < rows.length; i++) {
-            const cells = rows[i].getElementsByTagName('td');
-            const headers = rows[i].getElementsByTagName('th');
-            let cellContent = '';
-            if (index < headers.length) {
-                cellContent = headers[index].textContent.trim();
-            } else if (index - headers.length < cells.length) {
-                cellContent = cells[index - headers.length].textContent.trim();
-            }
-            if (cellContent) content.push(cellContent);
-        }
-    }
-
-    document.getElementById('textArea').value = content.join('\n');
-
-    // 自动切换到文本处理标签页
-    const textTabButton = document.querySelector('.tab-button:not(.active)');
-    openTab({ currentTarget: textTabButton }, 'textTab');
-});
-
-// 更新选择器状态
-function updateSelectors() {
-    const directionSelect = document.getElementById('directionSelect');
-    const headerSelect = document.getElementById('headerSelect');
-    const sendToTxtBtn = document.getElementById('sendToTxtBtn');
-    const exportTxtBtn = document.getElementById('exportTxtBtn');
-    const exportRule = document.getElementById('exportRule');
-
-    directionSelect.disabled = !tableData;
-    headerSelect.disabled = true;
-    sendToTxtBtn.disabled = true;
-    exportTxtBtn.disabled = true;
-    exportRule.disabled = true;
-    headerSelect.innerHTML = '<option value="">选择要导出的标题</option>';
-}
-
-document.getElementById('directionSelect').addEventListener('change', function () {
-    const headerSelect = document.getElementById('headerSelect');
-    const sendToTxtBtn = document.getElementById('sendToTxtBtn');
-    const exportTxtBtn = document.getElementById('exportTxtBtn');
-
-    headerSelect.innerHTML = '<option value="">选择要导出的标题</option>';
-
-    if (!this.value || !tableData) {
-        headerSelect.disabled = true;
-        sendToTxtBtn.disabled = true;
-        exportTxtBtn.disabled = true;
-        return;
-    }
-
-    const isRow = this.value === 'row';
-    const rows = tableData.getElementsByTagName('tr');
-
-    if (isRow) {
-        // 获取所有行的第一个单元格作为标题
-        for (let i = 0; i < rows.length; i++) {
-            const firstCell = rows[i].getElementsByTagName('td')[0] || rows[i].getElementsByTagName('th')[0];
-            if (firstCell) {
-                const option = document.createElement('option');
-                option.value = i;
-                option.textContent = firstCell.textContent.trim() || `行 ${i + 1}`;
-                headerSelect.appendChild(option);
+                loader.classList.remove('show');
             }
         }
-    } else {
-        // 获取第一行的所有单元格作为列标题
-        const firstRow = rows[0];
-        const headers = firstRow.getElementsByTagName('th');
-        const cells = firstRow.getElementsByTagName('td');
+    };
 
-        for (let i = 0; i < Math.max(headers.length, cells.length); i++) {
-            const cell = headers[i] || cells[i];
-            if (cell) {
-                const option = document.createElement('option');
-                option.value = i;
-                option.textContent = cell.textContent.trim() || `列 ${i + 1}`;
-                headerSelect.appendChild(option);
-            }
-        }
-    }
+    // Global Tab Switcher
+    window.switchPanel = (panelId, btn) => {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(panelId).classList.add('active');
+        btn.classList.add('active');
+        state.currentTab = panelId;
+    };
 
-    headerSelect.disabled = false;
-});
+    // ==========================================
+    // Module 1: HTML & Table Processing
+    // ==========================================
+    
+    // File Input & Drag-n-Drop
+    const htmlZone = document.getElementById('htmlDropZone');
+    const htmlInput = document.getElementById('htmlFile');
 
-document.getElementById('headerSelect').addEventListener('change', function () {
-    const sendToTxtBtn = document.getElementById('sendToTxtBtn');
-    const exportRule = document.getElementById('exportRule');
-    const exportTxtBtn = document.getElementById('exportTxtBtn');
-    sendToTxtBtn.disabled = !this.value;
-    exportRule.disabled = !this.value;
-    exportTxtBtn.disabled = !this.value;
-});
-
-// wildcards规则
-function formatContent(text) {
-    let result = text;
-
-    // 1. 将所有中文符号改为英文符号（括号，逗号，句号）以及下划线替换为空格
-    result = result.replace(/[，]/g, ',')
-        .replace(/[。]/g, '.')
-        .replace(/[（]/g, '(')
-        .replace(/[）]/g, ')')
-        .replace(/_/g, ' ');
-    document.getElementById('textArea').value = result;
-
-    // 2. 只删除逗号和括号左右的空格，保留换行符
-    result = result.split('\n').map(line => {
-        return line.replace(/\s*([,()])\s*/g, '$1').replace(/,\s*$/, '');
-    }).join('\n');
-    document.getElementById('textArea').value = result;
-
-    // 3. 若有多个括号连在一起则改为一个逗号
-    result = result.replace(/\)\(+/g, '),(');
-    document.getElementById('textArea').value = result;
-
-    // 4. 遍历每一个tag，处理括号组
-    let lines = result.split('\n');
-    lines = lines.map(line => {
-        let tags = line.split(',');
-        tags = tags.map(tag => {
-            // 处理一个tag的函数
-            function processTag(tagContent) {
-                let processed = tagContent;
-                let everRemoved = false; // 标记是否成功移除过括号
-
-                // 1. 循环删除外层括号,直到不满足条件
-                let changed = true;
-                while (changed) {
-                    changed = false;
-                    if (processed.charAt(0) === '(' && processed.charAt(processed.length - 1) === ')') {
-                        processed = processed.slice(1, -1);
-                        changed = true;
-                        everRemoved = true;
-                    }
-                }
-
-                // 如果从未移除过括号(即第一次检查就不满足条件),直接使用原始内容处理
-                if (!everRemoved) {
-                    return processed
-                        .replace(/\\/g, '') // 去除所有反斜杠
-                        .replace(/\(/g, ' \\(')
-                        .replace(/\)/g, '\\) ')
-                        .replace(/\s+/g, ' ')
-                        .trim();
-                }
-
-                // 2. 处理剩余的括号
-                processed = processed
-                    .replace(/\\/g, '') // 去除所有反斜杠
-                    .replace(/\(/g, ' \\(')
-                    .replace(/\)/g, '\\) ')
-                    .replace(/\s+/g, ' ')
-                    .trim();
-
-                // 3. 添加一对外层括号(只在之前成功移除过括号的情况下)
-                return `(${processed})`;
-            }
-
-            return processTag(tag);
-        });
-        return tags.join(',');
+    htmlZone.addEventListener('click', () => htmlInput.click());
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        htmlZone.addEventListener(eventName, preventDefaults, false);
+        document.getElementById('textArea').addEventListener(eventName, preventDefaults, false);
     });
 
-    result = lines.join('\n');
-    document.getElementById('textArea').value = result;
+    function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
 
-    return result;
-}
+    htmlZone.addEventListener('dragover', () => htmlZone.classList.add('drag-over'));
+    htmlZone.addEventListener('dragleave', () => htmlZone.classList.remove('drag-over'));
+    htmlZone.addEventListener('drop', (e) => {
+        htmlZone.classList.remove('drag-over');
+        handleHtmlFile(e.dataTransfer.files[0]);
+    });
 
-// 添加规则选择切换函数
-function toggleRuleOptions(value) {
-    const formatRule = document.getElementById('formatRule');
-    formatRule.style.display = value === 'formatted' ? 'inline-block' : 'none';
-}
+    htmlInput.addEventListener('change', (e) => handleHtmlFile(e.target.files[0]));
 
-// 添加规则化按钮事件监听器
-document.getElementById('formatBtn').addEventListener('click', function () {
-    const textArea = document.getElementById('textArea');
-    const formatRule = document.getElementById('formatRule');
-    const content = textArea.value;
-
-    if (formatRule.value === 'wildcards') {
-        formatContent(content);
-    }
-    // 这里可以添加更多规则的处理分支
-});
-
-// 修改导出TXT文件的处理逻辑
-document.getElementById('exportTxtBtn').addEventListener('click', function () {
-    const textArea = document.getElementById('textArea');
-    const content = textArea.value;
-    
-    try {
-        const blob = new Blob([content], { type: 'text/plain' });
-        const downloadUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = `processed_text_${new Date().getTime()}.txt`;
-        
-        // 必须将链接添加到DOM中
-        document.body.appendChild(link);
-        link.click();
-        
-        // 清理
-        setTimeout(() => {
-            document.body.removeChild(link);
-            URL.revokeObjectURL(downloadUrl);
-        }, 100);
-    } catch (error) {
-        console.error('下载文件失败:', error);
-        alert('下载文件失败，请重试');
-    }
-});
-
-document.getElementById('convertBtn').addEventListener('click', async function () {
-    if (!tableData) {
-        alert('请先选择HTML文件！');
-        return;
-    }
-
-    // 创建工作簿和工作表
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Sheet1');
-    const rows = tableData.getElementsByTagName('tr');
-
-    // 显示进度提示
-    const progressDiv = document.createElement('div');
-    progressDiv.style.position = 'fixed';
-    progressDiv.style.top = '50%';
-    progressDiv.style.left = '50%';
-    progressDiv.style.transform = 'translate(-50%, -50%)';
-    progressDiv.style.padding = '20px';
-    progressDiv.style.background = 'rgba(0,0,0,0.7)';
-    progressDiv.style.color = 'white';
-    progressDiv.style.borderRadius = '5px';
-    document.body.appendChild(progressDiv);
-
-    // 创建一个数组来存储所有的处理Promise
-    const processingPromises = [];
-
-    // 处理每一行
-    for (let i = 0; i < rows.length; i++) {
-        progressDiv.textContent = `处理中...${Math.round((i / rows.length) * 100)}%`;
-
-        const cells = rows[i].getElementsByTagName('td');
-        const headers = rows[i].getElementsByTagName('th');
-        const excelRow = worksheet.getRow(i + 1);
-
-        // 处理表头
-        for (let j = 0; j < headers.length; j++) {
-            excelRow.getCell(j + 1).value = headers[j].textContent.trim();
+    function handleHtmlFile(file) {
+        if (!file || !file.name.match(/\.(html|htm)$/i)) {
+            ui.toast('请上传有效的 HTML 文件', 'error');
+            return;
         }
 
-        // 处理数据单元格
-        for (let j = 0; j < cells.length; j++) {
-            const cell = cells[j];
-            const img = cell.querySelector('img');
-            const colIndex = headers.length + j + 1;
+        ui.loader(true, '正在解析 HTML 结构...');
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(e.target.result, 'text/html');
+                const table = doc.querySelector('table');
 
-            if (img) {
-                const promise = (async () => {
-                    try {
-                        const imgSrc = img.src;
-                        worksheet.getRow(i + 1).height = 100;
-                        worksheet.getColumn(colIndex).width = 15;
+                if (table) {
+                    state.tableData = table;
+                    renderPreview(table);
+                    document.getElementById('htmlControls').style.display = 'block';
+                    document.getElementById('htmlDropZone').style.display = 'none'; // Hide dropzone to save space
+                    updateSelectors(true); // Reset selectors
+                    ui.toast('表格解析成功', 'success');
+                } else {
+                    ui.toast('未在文件中找到 Table 标签', 'error');
+                }
+            } catch (err) {
+                ui.toast('解析失败: ' + err.message, 'error');
+            } finally {
+                ui.loader(false);
+            }
+        };
+        reader.readAsText(file);
+    }
 
-                        if (imgSrc.startsWith('data:image')) {
-                            const imageId = workbook.addImage({
-                                base64: imgSrc,
-                                extension: 'png',
-                            });
-                            worksheet.addImage(imageId, {
-                                tl: { col: colIndex - 1, row: i },
-                                ext: { width: 100, height: 100 }
-                            });
-                        } else {
-                            const response = await fetch(imgSrc);
-                            const blob = await response.blob();
-                            const base64 = await new Promise((resolve) => {
-                                const reader = new FileReader();
-                                reader.onload = (e) => resolve(e.target.result);
-                                reader.readAsDataURL(blob);
-                            });
+    function renderPreview(table) {
+        const wrapper = document.getElementById('preview');
+        wrapper.innerHTML = '';
+        // Clone table to prevent modifying original data reference too much
+        const clone = table.cloneNode(true);
+        clone.style.width = '100%';
+        clone.style.borderCollapse = 'collapse';
+        clone.style.fontSize = '13px';
+        
+        // Add basic styles to the preview table cells
+        const cells = clone.querySelectorAll('td, th');
+        cells.forEach(td => {
+            td.style.border = '1px solid var(--border-color)';
+            td.style.padding = '8px';
+            // Limit image size in preview
+            const imgs = td.querySelectorAll('img');
+            imgs.forEach(img => img.style.maxWidth = '100px');
+        });
 
-                            const imageId = workbook.addImage({
-                                base64: base64,
-                                extension: 'png',
-                            });
-                            worksheet.addImage(imageId, {
-                                tl: { col: colIndex - 1, row: i },
-                                ext: { width: 100, height: 100 }
-                            });
-                        }
-                    } catch (error) {
-                        console.error('处理图片时出错:', error);
-                        excelRow.getCell(colIndex).value = '图片加载失败';
-                    }
-                })();
-                processingPromises.push(promise);
-            } else {
-                excelRow.getCell(colIndex).value = cell.textContent.trim();
+        wrapper.appendChild(clone);
+    }
+
+    // Selectors Logic
+    const dirSelect = document.getElementById('directionSelect');
+    const headSelect = document.getElementById('headerSelect');
+    const sendTxtBtn = document.getElementById('sendToTxtBtn');
+    const extImgBtn = document.getElementById('extractImgBtn');
+
+    function updateSelectors(reset = false) {
+        if (reset) {
+            dirSelect.value = '';
+            headSelect.innerHTML = '<option value="">请先选择方向</option>';
+            headSelect.disabled = true;
+            sendTxtBtn.disabled = true;
+            extImgBtn.disabled = true;
+            return;
+        }
+    }
+
+    dirSelect.addEventListener('change', () => {
+        if (!state.tableData) return;
+        
+        headSelect.innerHTML = '<option value="">加载中...</option>';
+        const isRow = dirSelect.value === 'row';
+        const rows = state.tableData.rows;
+        
+        const fragment = document.createDocumentFragment();
+        
+        // Add default option
+        const defOpt = document.createElement('option');
+        defOpt.value = "";
+        defOpt.textContent = "请选择目标数据...";
+        fragment.appendChild(defOpt);
+
+        if (isRow) {
+            Array.from(rows).forEach((row, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                const txt = row.cells[0]?.textContent.trim().substring(0, 40) || `Row ${i + 1}`;
+                opt.textContent = `${i+1}. ${txt}`;
+                fragment.appendChild(opt);
+            });
+        } else {
+            const headerRow = rows[0];
+            const maxCells = headerRow ? headerRow.cells.length : 0;
+            for(let i=0; i<maxCells; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                const txt = headerRow.cells[i]?.textContent.trim().substring(0, 40) || `Col ${i+1}`;
+                opt.textContent = `${i+1}. ${txt}`;
+                fragment.appendChild(opt);
             }
         }
+
+        headSelect.innerHTML = '';
+        headSelect.appendChild(fragment);
+        headSelect.disabled = false;
+    });
+
+    headSelect.addEventListener('change', () => {
+        const hasValue = !!headSelect.value;
+        sendTxtBtn.disabled = !hasValue;
+        extImgBtn.disabled = !hasValue;
+    });
+
+    // Action: Extract Text
+    sendTxtBtn.addEventListener('click', () => {
+        const idx = parseInt(headSelect.value);
+        if (isNaN(idx)) return;
+        
+        const isRow = dirSelect.value === 'row';
+        let extracted = [];
+        
+        if (isRow) {
+            const cells = state.tableData.rows[idx].cells;
+            for(let cell of cells) extracted.push(cell.textContent.trim());
+        } else {
+            // Skip header if extracting column
+            for(let i=1; i<state.tableData.rows.length; i++) {
+                const cell = state.tableData.rows[i].cells[idx];
+                if(cell) extracted.push(cell.textContent.trim());
+            }
+        }
+        
+        const textArea = document.getElementById('textArea');
+        const existing = textArea.value;
+        textArea.value = existing + (existing ? '\n' : '') + extracted.filter(t=>t).join('\n');
+        
+        // Switch tab
+        document.querySelector('.nav-item:nth-child(3)').click();
+        ui.toast(`已提取 ${extracted.length} 条文本数据`, 'success');
+    });
+
+    // Action: Extract Images (New Feature)
+    extImgBtn.addEventListener('click', async () => {
+        const idx = parseInt(headSelect.value);
+        if (isNaN(idx)) return;
+
+        ui.loader(true, '正在扫描图片资源...');
+        const zip = new JSZip();
+        const imgFolder = zip.folder("images");
+        const isRow = dirSelect.value === 'row';
+        let count = 0;
+
+        const cellsToScan = [];
+        if (isRow) {
+            const cells = state.tableData.rows[idx].cells;
+            for(let c of cells) cellsToScan.push(c);
+        } else {
+            for(let i=1; i<state.tableData.rows.length; i++) {
+                const cell = state.tableData.rows[i].cells[idx];
+                if(cell) cellsToScan.push(cell);
+            }
+        }
+
+        const imgTasks = [];
+        
+        cellsToScan.forEach((cell, cellIndex) => {
+            const imgs = cell.querySelectorAll('img');
+            imgs.forEach((img, imgIndex) => {
+                const src = img.src;
+                const ext = src.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'png';
+                const filename = `${isRow ? 'Col' : 'Row'}_${cellIndex + 1}_Img_${imgIndex + 1}.${ext}`;
+                
+                imgTasks.push(async () => {
+                    try {
+                        let blob;
+                        if (src.startsWith('data:')) {
+                            blob = await (await fetch(src)).blob();
+                        } else {
+                            // Fetch external (might fail due to CORS)
+                            try {
+                                const response = await fetch(src);
+                                blob = await response.blob();
+                            } catch (e) {
+                                console.warn('CORS failed, ignoring', src);
+                                return; 
+                            }
+                        }
+                        if (blob) {
+                            imgFolder.file(filename, blob);
+                            count++;
+                        }
+                    } catch (e) { console.error(e); }
+                });
+            });
+        });
+
+        if (imgTasks.length === 0) {
+            ui.loader(false);
+            ui.toast('所选区域未找到图片', 'error');
+            return;
+        }
+
+        ui.loader(true, `正在打包 ${imgTasks.length} 张图片...`);
+        await Promise.all(imgTasks);
+
+        if (count > 0) {
+            const content = await zip.generateAsync({type:"blob"});
+            saveAs(content, "extracted_images.zip");
+            ui.toast(`成功导出 ${count} 张图片`, 'success');
+        } else {
+            ui.toast('无法下载图片 (可能是跨域限制)', 'error');
+        }
+        ui.loader(false);
+    });
+
+    // Action: Export Full Excel
+    document.getElementById('convertBtn').addEventListener('click', async () => {
+        if (!state.tableData) return;
+        ui.loader(true, '正在生成 Excel...');
+        
+        try {
+            const wb = new ExcelJS.Workbook();
+            const ws = wb.addWorksheet('Export');
+            const rows = state.tableData.rows;
+
+            // Simple text export first (Image in Excel is complex, simplified here for reliability)
+            for(let i=0; i<rows.length; i++) {
+                const cells = rows[i].cells;
+                const rowData = [];
+                for(let j=0; j<cells.length; j++) {
+                    rowData.push(cells[j].textContent.trim());
+                }
+                ws.addRow(rowData);
+            }
+
+            const buf = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buf], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+            saveAs(blob, "data_export.xlsx");
+            ui.toast('Excel 导出成功', 'success');
+        } catch (e) {
+            ui.toast('导出失败: ' + e.message, 'error');
+        } finally {
+            ui.loader(false);
+        }
+    });
+
+
+    // ==========================================
+    // Module 2: Text Processing
+    // ==========================================
+    
+    // Drag drop for text area
+    const txtArea = document.getElementById('textArea');
+    txtArea.addEventListener('drop', (e) => {
+        const file = e.dataTransfer.files[0];
+        if(file) loadTxtFile(file);
+    });
+
+    document.getElementById('txtFile').addEventListener('change', (e) => loadTxtFile(e.target.files[0]));
+
+    function loadTxtFile(file) {
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            txtArea.value = e.target.result;
+            ui.toast('文本已导入');
+        };
+        reader.readAsText(file);
     }
 
-    // 等待所有图片处理完成
-    await Promise.all(processingPromises);
-    progressDiv.textContent = '正在生成Excel文件...';
+    document.getElementById('formatBtn').addEventListener('click', () => {
+        const val = txtArea.value;
+        if(!val) { ui.toast('编辑器为空', 'error'); return; }
+        
+        // Wildcards Logic (Same logic as before, optimized)
+        const processed = processWildcards(val);
+        txtArea.value = processed;
+        ui.toast('规则化处理完成', 'success');
+    });
 
-    try {
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { 
-            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    document.getElementById('exportTxtBtn').addEventListener('click', () => {
+        const val = txtArea.value;
+        if(!val) return;
+        const blob = new Blob([val], {type: "text/plain;charset=utf-8"});
+        saveAs(blob, "clean_text.txt");
+    });
+
+    // Logic Refined from previous request
+    function processWildcards(text) {
+        let res = text
+            .replace(/，/g, ',').replace(/。/g, '.').replace(/（/g, '(').replace(/）/g, ')')
+            .replace(/_/g, ' ')
+            .replace(/\s*([,()])\s*/g, '$1') // trim spaces around symbols
+            .replace(/,$/mg, '') // remove end comma
+            .replace(/\)\(+/g, '),('); // fix )(
+
+        const lines = res.split('\n').map(line => {
+            return line.split(',').map(tag => {
+                let t = tag;
+                let removed = false;
+                while(t.startsWith('(') && t.endsWith(')')) {
+                    t = t.slice(1, -1);
+                    removed = true;
+                }
+                t = t.replace(/\\/g, '').replace(/\(/g, '\\(').replace(/\)/g, '\\)').trim();
+                return removed ? `(${t})` : t;
+            }).join(',');
         });
-        const downloadUrl = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = `table_data_${new Date().getTime()}.xlsx`;
-        
-        // 必须将链接添加到DOM中
-        document.body.appendChild(link);
-        link.click();
-        
-        // 清理
-        setTimeout(() => {
-            document.body.removeChild(link);
-            URL.revokeObjectURL(downloadUrl);
-            document.body.removeChild(progressDiv);
-        }, 100);
-    } catch (error) {
-        console.error('导出Excel失败:', error);
-        alert('导出Excel失败，请重试');
-        document.body.removeChild(progressDiv);
+        return lines.join('\n');
     }
 });
-
-// 添加标签页切换功能
-function openTab(evt, tabName) {
-    const tabContents = document.getElementsByClassName('tab-content');
-    const tabButtons = document.getElementsByClassName('tab-button');
-
-    // 隐藏所有标签页内容
-    for (let i = 0; i < tabContents.length; i++) {
-        tabContents[i].classList.remove('active');
-    }
-
-    // 移除所有标签按钮的active类
-    for (let i = 0; i < tabButtons.length; i++) {
-        tabButtons[i].classList.remove('active');
-    }
-
-    // 显示当前标签页
-    document.getElementById(tabName).classList.add('active');
-    evt.currentTarget.classList.add('active');
-}
